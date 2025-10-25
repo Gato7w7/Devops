@@ -20,7 +20,7 @@ jobs:
     steps:
     # 1. Checkout del código
     - name: Checkout código
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     # 2. Configurar Python
     - name: Configurar Python ${{ matrix.python-version }}
@@ -46,6 +46,7 @@ jobs:
     # 5. Ejecutar tests con coverage
     - name: Ejecutar tests
       run: |
+        export PYTHONPATH="${PYTHONPATH}:${GITHUB_WORKSPACE}"
         pytest tests/ -v --cov=src --cov-report=term-missing
     
     # 6. Subir reporte de cobertura (opcional)
@@ -54,10 +55,28 @@ jobs:
       run: |
         pytest tests/ --cov=src --cov-report=html
     
-    # 7. Ejecutar la aplicación como verificación final
+    # 7. Debug - Ver estructura de archivos
+    - name: Ver estructura del proyecto
+      run: |
+        echo "📁 Contenido del directorio:"
+        ls -la
+        echo ""
+        echo "📁 Contenido de src/ (si existe):"
+        ls -la src/ 2>/dev/null || echo "No existe carpeta src/"
+    
+    # 8. Ejecutar la aplicación como verificación final
     - name: Ejecutar aplicación
       run: |
-        python src/calculator.py
+        export PYTHONPATH="${PYTHONPATH}:${GITHUB_WORKSPACE}"
+        # Intentar ejecutar desde src/ primero
+        if [ -f "src/calculator.py" ]; then
+          python src/calculator.py
+        elif [ -f "calculator.py" ]; then
+          python calculator.py
+        else
+          echo "No se encuentra calculator.py"
+          exit 1
+        fi
 
   # Job adicional: Build (simulación)
   build:
@@ -77,7 +96,7 @@ jobs:
         echo "Build completado exitosamente"
     
     - name: Guardar artefacto
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: aplicacion-empaquetada
         path: dist/
