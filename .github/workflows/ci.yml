@@ -1,0 +1,83 @@
+name: CI Pipeline
+
+# Eventos que disparan el pipeline
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test en Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        # Probar en múltiples versiones de Python
+        python-version: ['3.9', '3.10', '3.11']
+    
+    steps:
+    # 1. Checkout del código
+    - name: Checkout código
+      uses: actions/checkout@v3
+    
+    # 2. Configurar Python
+    - name: Configurar Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    # 3. Instalar dependencias
+    - name: Instalar dependencias
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    # 4. Ejecutar linter (opcional pero recomendado)
+    - name: Verificar estilo de código
+      run: |
+        pip install flake8
+        # Detener si hay errores de sintaxis o nombres indefinidos
+        flake8 src tests --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Advertencias de estilo (no detiene el build)
+        flake8 src tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    # 5. Ejecutar tests con coverage
+    - name: Ejecutar tests
+      run: |
+        pytest tests/ -v --cov=src --cov-report=term-missing
+    
+    # 6. Subir reporte de cobertura (opcional)
+    - name: Generar reporte de cobertura
+      if: matrix.python-version == '3.11'
+      run: |
+        pytest tests/ --cov=src --cov-report=html
+    
+    # 7. Ejecutar la aplicación como verificación final
+    - name: Ejecutar aplicación
+      run: |
+        python src/calculator.py
+
+  # Job adicional: Build (simulación)
+  build:
+    name: Build del proyecto
+    needs: test  # Solo se ejecuta si los tests pasan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v3
+    
+    - name: Simulación de empaquetado
+      run: |
+        echo "Empaquetando aplicación..."
+        mkdir -p dist
+        cp -r src dist/
+        echo "Build completado exitosamente"
+    
+    - name: Guardar artefacto
+      uses: actions/upload-artifact@v3
+      with:
+        name: aplicacion-empaquetada
+        path: dist/
